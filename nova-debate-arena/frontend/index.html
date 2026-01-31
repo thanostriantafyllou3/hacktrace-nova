@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nova Cartoon Debate Arena</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brandBadge">NOVA</span>
+      <span class="brandTitle">Cartoon Debate Arena</span>
+    </div>
+    <div class="topbarRight">
+      <div class="pill" id="phasePill">Idle</div>
+      <div class="pill pillDot" id="connPill"><span class="dot" id="connDot"></span><span id="connText">offline</span></div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- LEFT: Cases + controls -->
+    <aside class="panel">
+      <h2>Cases (pandemic subset)</h2>
+      <div class="hint">Pick one row from <code>data/nova.csv</code>. ★ marks the default 5 focus rows.</div>
+
+      <div class="caseList" id="caseList"></div>
+
+      <div class="controls">
+        <div class="controlRow">
+          <label class="control">
+            <div class="label">Model</div>
+            <input id="modelInput" type="text" value="gpt-4o-mini" />
+          </label>
+        </div>
+
+        <div class="controlRow">
+          <label class="control">
+            <div class="label">Temperature</div>
+            <input id="tempInput" type="number" min="0" max="1" step="0.1" value="0.2" />
+          </label>
+          <label class="control">
+            <div class="label">Rebuttals</div>
+            <input id="rebutInput" type="number" min="0" max="2" step="1" value="1" />
+          </label>
+        </div>
+
+        <div class="controlRow">
+          <button class="btn" id="startBtn">Start debate</button>
+          <button class="btn btnGhost" id="stopBtn" disabled>Stop</button>
+        </div>
+      </div>
+
+      <div class="preview" id="casePreview">
+        <div class="previewTitle">Selected case</div>
+        <div class="previewBody">Choose a case to preview truth/claim.</div>
+      </div>
+    </aside>
+
+    <!-- CENTER: Arena -->
+    <section class="arena">
+      <div class="arenaHeader">
+        <div class="arenaTitle">Live Arena</div>
+        <div class="arenaSub" id="arenaMeta">No debate running.</div>
+      </div>
+
+      <div class="stage" id="stage">
+        <div class="agentCard" id="cardAdvocate" data-base="Advocate">
+          <div class="agentTop">
+            <div class="avatar avatarAdvocate" aria-label="Advocate avatar">
+              <svg viewBox="0 0 64 64" width="56" height="56" role="img">
+                <circle cx="32" cy="32" r="24" fill="currentColor" />
+                <path d="M22 28c0-7 20-7 20 0" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round" />
+                <path d="M24 38c2 3 4 5 8 5s6-2 8-5" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round" />
+                <circle cx="24" cy="30" r="2" fill="#111" />
+                <circle cx="40" cy="30" r="2" fill="#111" />
+              </svg>
+            </div>
+            <div>
+              <div class="agentName">Advocate</div>
+              <div class="agentRole">Defends the claim</div>
+            </div>
+          </div>
+          <div class="bubble" id="bubbleAdvocate"><div class="bubbleInner"></div></div>
+        </div>
+
+        <div class="agentCard" id="cardSkeptic" data-base="Skeptic">
+          <div class="agentTop">
+            <div class="avatar avatarSkeptic" aria-label="Skeptic avatar">
+              <svg viewBox="0 0 64 64" width="56" height="56" role="img">
+                <rect x="10" y="12" width="44" height="44" rx="18" fill="currentColor" />
+                <path d="M24 30l16 0" stroke="#111" stroke-width="4" stroke-linecap="round" />
+                <path d="M22 39c3-2 5-3 10-3s7 1 10 3" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round" />
+                <circle cx="24" cy="30" r="2" fill="#111" />
+                <circle cx="40" cy="30" r="2" fill="#111" />
+              </svg>
+            </div>
+            <div>
+              <div class="agentName">Skeptic</div>
+              <div class="agentRole">Attacks mutations</div>
+            </div>
+          </div>
+          <div class="bubble" id="bubbleSkeptic"><div class="bubbleInner"></div></div>
+        </div>
+
+        <div class="agentCard" id="cardFact" data-base="Fact-Checker">
+          <div class="agentTop">
+            <div class="avatar avatarFact" aria-label="Fact-checker avatar">
+              <svg viewBox="0 0 64 64" width="56" height="56" role="img">
+                <path d="M18 14h28a8 8 0 0 1 8 8v20a8 8 0 0 1-8 8H30l-10 8v-8h-2a8 8 0 0 1-8-8V22a8 8 0 0 1 8-8z" fill="currentColor" />
+                <path d="M22 26h20M22 34h14" stroke="#111" stroke-width="4" stroke-linecap="round" />
+              </svg>
+            </div>
+            <div>
+              <div class="agentName">Fact-Checker</div>
+              <div class="agentRole">Extracts constraints</div>
+            </div>
+          </div>
+          <div class="bubble" id="bubbleFact"><div class="bubbleInner"></div></div>
+        </div>
+
+        <div class="agentCard" id="cardJudge" data-base="Judge">
+          <div class="agentTop">
+            <div class="avatar avatarJudge" aria-label="Judge avatar">
+              <svg viewBox="0 0 64 64" width="56" height="56" role="img">
+                <path d="M18 28c0-10 28-10 28 0v12c0 10-28 10-28 0V28z" fill="currentColor" />
+                <path d="M24 30h16" stroke="#111" stroke-width="4" stroke-linecap="round" />
+                <path d="M26 40c2 2 4 3 6 3s4-1 6-3" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round" />
+                <path d="M22 20l10-8 10 8" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div>
+              <div class="agentName">Judge</div>
+              <div class="agentRole">Final verdict</div>
+            </div>
+          </div>
+          <div class="bubble" id="bubbleJudge"><div class="bubbleInner"></div></div>
+        </div>
+      </div>
+
+      <div class="arenaFooter">
+        <div class="hint">Tip: the bubbles update live as the model streams tokens. The transcript on the right keeps every completed turn.</div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Transcript + verdict -->
+    <aside class="panel panelRight">
+      <h2>Transcript</h2>
+      <div class="verdict" id="verdictPanel">
+        <div class="verdictTitle">Verdict</div>
+        <div class="verdictBody">No verdict yet.</div>
+      </div>
+      <div class="transcript" id="transcript"></div>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    Built for the Nova team • LangChain agents • WebSocket streaming • Flat cartoon UI
+  </footer>
+
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>
