@@ -1,0 +1,14 @@
+[project]
+name = "hacktrace-nova"
+version = "0.1.0"
+description = "A multi-agent jury system for the FactTrace Hackathon at University of Cambridge."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain",
+    "langchain-openai",
+    "langgraph",
+    "PyYAML",
+    "pydantic-settings",
+    "python-dotenv",
+]

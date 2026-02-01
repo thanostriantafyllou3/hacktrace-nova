@@ -1,0 +1,18 @@
+{role_instruction}
+
+---
+
+CLAIM: {claim}
+
+TRUTH: {truth}
+
+EXTRACTED FACTS (from claim vs truth):
+{fact_frame}
+
+---
+
+You voted {verdict} in the initial vote. Your reasoning: {reasoning}
+
+{other_side_args}
+
+Present your main argument in 2–4 sentences. Be concise and substantive. Stay in character as your role.

@@ -1,0 +1,39 @@
+interactive: true  # show parse, votes, debate, verdict as they stream
+
+data:
+  source: "data/Nova.csv"
+  claim_col: "claim"
+  truth_col: "truth"
+  pair_ids: [0, 5, 9, 10, 13]  # 0-indexed
+
+agents:
+  - name: literal
+    role: "Literal Fact-Checker"
+  - name: context
+    role: "Context Guardian"
+  - name: steelman
+    role: "Steelman Advocate"
+  - name: sceptic
+    role: "Sceptic"
+
+foreperson:
+  rubric:
+    - axis: numeric_fidelity
+      question: "Are all numbers, units, and percentages in the claim supported by the truth?"
+    - axis: scope_fidelity
+      question: "Are who/where/when correctly represented?"
+    - axis: causal_fidelity
+      question: "Does the claim avoid causal leaps not supported by the truth?"
+    - axis: certainty_fidelity
+      question: "Are hedges and certainty preserved?"
+    - axis: context_sufficiency
+      question: "Are key caveats, qualifiers, or denominators reflected or not contradicted?"
+  dissent_threshold: 2
+
+debate:
+  max_rounds: 2
+
+models:
+  parser: "gpt-4.1-mini"
+  agents: "gpt-4.1-mini"
+  foreperson: "gpt-4.1-mini"
