@@ -1,141 +1,94 @@
 # Build Plan — FactTrace Agentic Jury
 
-## Current status
+## Current status: ✅ Complete
 
-| Phase | Status   | Notes |
-|-------|----------|-------|
+| Phase | Status | Notes |
+|-------|--------|-------|
 | 1. Setup | ✅ Done | Config, data loader, project structure |
-| 2. Schemas | 🔲 Todo | Pydantic models |
-| 3. Parser | 🔲 Todo | Fact Frame extraction |
-| 4. Jury agents | 🔲 Todo | Round 0 votes |
-| 5. Debate | 🔲 Todo | Round 1 orchestration |
-| 6. Revote + Foreperson | 🔲 Todo | Round 2 + verdict |
-| 7. Pipeline | 🔲 Todo | Wire in main.py |
+| 2. Schemas | ✅ Done | Fact, FactFrame, Evidence, JuryOutput, AxisResult, Verdict |
+| 3. Parser | ✅ Done | Fact Frame extraction via structured output |
+| 4. Jury agents | ✅ Done | Round 0 + Revote via `run_vote`, role-based prompts |
+| 5. Debate | ✅ Done | One exchange (Mutated → Faithful) when split |
+| 6. Revote + Foreperson | ✅ Done | Config-driven rubric, axis_results |
+| 7. Pipeline | ✅ Done | LangGraph: parse → initial_vote → [debate] → revote → foreperson |
 
 ---
 
 ## Phase 1: Setup ✅
 
-- [x] `config.yaml` with data, agents, rubric, models
+- [x] `config.yaml` with data, agents, rubric, models, interactive flag
 - [x] `config/loader.py` — YAML loader
-- [x] `data/loader.py` — CSV loader with `pair_ids` filter
-- [x] `main.py` — loads config + pairs
-- [x] Dirs: `schemas/`, `agents/`, `workflow/`, `prompts/`
+- [x] `data/loader.py` — CSV loader with `pair_ids` filter, returns `{id, claim, truth}`
+- [x] `main.py` — loads config, pairs, runs pipeline (interactive or quiet)
+- [x] Dirs: `schemas/`, `agents/`, `workflow/`, `prompts/`, `config/`, `data/`
 
 ---
 
-## Phase 2: Schemas 🔲
-
-Create Pydantic models for structured LLM output.
+## Phase 2: Schemas ✅
 
 | File | Model(s) | Purpose |
 |------|----------|---------|
-| `schemas/fact_frame.py` | `Quantity`, `Scope`, `FactFrame` | Parser output |
-| `schemas/agent_output.py` | `KeyEvidence`, `AgentOutput` | Jury agent output |
-| `schemas/verdict.py` | `Verdict` | Foreperson output |
-
-**Fields to include** (see README):
-
-- **FactFrame:** entities, quantities, scope, modality, relationship_type, caveats
-- **AgentOutput:** verdict (Faithful|Mutated), confidence, key_evidence, reasoning
-- **Verdict:** verdict, 5 rubric axes (bool), failed_axes, reasoning, optional dissent_note, minimal_edit
+| `schemas/fact_frame.py` | `Fact`, `FactFrame` | Parser output: flexible facts with category, claim_says, truth_says, note |
+| `schemas/jury_output.py` | `Evidence`, `JuryOutput` | Agent output: verdict, confidence, evidence (Fact+issue), reasoning |
+| `schemas/verdict.py` | `AxisResult`, `Verdict` | Foreperson: config-driven rubric axes, summary, minimal_edit, dissent_note |
 
 ---
 
-## Phase 3: Parser 🔲
+## Phase 3: Parser ✅
 
-**Goal:** Extract a Fact Frame from (claim, truth).
+- [x] `prompts/parser.txt` — instructs LLM to extract facts
+- [x] `agents/parser.py` — ChatOpenAI + `with_structured_output(FactFrame)`
+- [x] Config: `models.parser`
 
-| Task | Where | Notes |
-|------|-------|-------|
-| System prompt | `prompts/parser.txt` | Instruct LLM to extract entities, quantities, scope, modality, relationship_type, caveats |
-| Chat model | `agents/parser.py` | LangChain ChatOpenAI + `with_structured_output(FactFrame)` |
-| Config | `models.parser` | Use model ID from config |
+---
 
-**LangChain pattern:**
-```python
-llm = ChatOpenAI(model=config["models"]["parser"])
-structured_llm = llm.with_structured_output(FactFrame)
+## Phase 4: Jury agents ✅
+
+- [x] `prompts/jury/vote_template.txt` — shared template with `{role_instruction}`, `{claim}`, `{truth}`, `{fact_frame}`, `{debate_section}`
+- [x] `prompts/jury/{literal,context,steelman,sceptic}.txt` — role instructions
+- [x] `agents/jury.py` — `run_jury(agent_name, claim, truth, fact_frame, config, transcript=None)`
+- [x] `workflow/vote.py` — `run_vote()` via RunnableParallel, `is_split()` helper
+
+---
+
+## Phase 5: Debate ✅
+
+- [x] `prompts/jury/debate_template.txt` — agents present arguments in character
+- [x] `workflow/debate.py` — `run_debate()`: Mutated side speaks, then Faithful responds
+- [x] One exchange per run; `debate.max_rounds` in config (for future multi-round)
+
+---
+
+## Phase 6: Revote + Foreperson ✅
+
+- [x] `run_vote()` reused with optional `transcript` for revote
+- [x] `prompts/foreperson.txt` — rubric questions from config
+- [x] `agents/foreperson.py` — `run_foreperson()` with structured Verdict
+- [x] `axis_results` per rubric axis; `dissent_note` when minority ≥ dissent_threshold
+
+---
+
+## Phase 7: Pipeline ✅
+
+- [x] LangGraph `StateGraph(JuryState)` in `workflow/graph.py`
+- [x] Nodes: parse, initial_vote, debate, revote, foreperson
+- [x] Conditional edge: split → debate, unanimous → revote
+- [x] `run_pipeline()` — invoke (quiet)
+- [x] `run_pipeline_interactive()` — stream + print each step
+- [x] `main.py` — loops pairs, uses config `interactive` flag
+- [x] `.env` with `OPENAI_API_KEY`, `python-dotenv` for loading
+
+---
+
+## How to run
+
+```bash
+uv sync
+cp .env.example .env   # set OPENAI_API_KEY
+uv run python src/main.py
 ```
 
----
-
-## Phase 4: Jury agents (Round 0) 🔲
-
-**Goal:** Each agent independently votes Faithful or Mutated.
-
-| Agent | Role | Focus |
-|-------|------|-------|
-| literal | Literal Fact-Checker | Numbers, dates, explicit statements |
-| context | Context Guardian | Nuance, caveats, qualifiers |
-| steelman | Steelman Advocate | Best interpretation of claim |
-| sceptic | Sceptic | Worst interpretation, exaggeration |
-
-| Task | Where | Notes |
-|------|-------|-------|
-| Prompts | `prompts/jury_*.txt` or one template | Role + Fact Frame + claim + truth |
-| Agent builder | `agents/jury.py` | One function to build agent by name; use `with_structured_output(AgentOutput)` |
-| Round 0 runner | `workflow/round0.py` | For each agent, invoke with claim, truth, fact_frame → list of AgentOutput |
-
----
-
-## Phase 5: Debate (Round 1) 🔲
-
-**Goal:** If verdict is split, run rule-based debate (constructives, rebuttals).
-
-| Task | Where | Notes |
-|------|-------|-------|
-| Debate logic | `workflow/debate.py` | Side A (Faithful), Side B (Mutated); constructives then rebuttals; max `debate.max_rounds` |
-| Speaker selection | — | E.g. alternate sides, or by disagreement strength |
-| Output | — | Transcript + updated stances (agents can change vote) |
-
-**Rule-based (no Moderator):** Two sides, fixed turns. Optional: LLM checker for "no new arguments" early stop.
-
----
-
-## Phase 6: Revote + Foreperson 🔲
-
-**Goal:** Round 2 revote, then Foreperson applies binary rubric.
-
-| Task | Where | Notes |
-|------|-------|-------|
-| Round 2 | `workflow/round2.py` | Same as Round 0 but agents see debate transcript |
-| Foreperson prompt | `prompts/foreperson.txt` | Rubric axes as Yes/No questions; output Verdict |
-| Foreperson agent | `agents/foreperson.py` | `with_structured_output(Verdict)` |
-| Dissent | — | If ≥ `dissent_threshold` on minority → `dissent_note` |
-
-**Rubric aggregation:** All Yes → Faithful; ≥1 No → Mutated; tie/ambiguous → Ambiguous.
-
----
-
-## Phase 7: Pipeline 🔲
-
-**Goal:** End-to-end flow in `main.py`.
-
-```
-load_config → load_pairs
-  for each pair:
-    parse(claim, truth) → fact_frame
-    round0(fact_frame, claim, truth) → votes
-    if split: debate → transcript
-    round2(..., transcript) → revotes
-    foreperson(revotes, rubric) → verdict
-    save/print verdict
-```
-
-| Task | Notes |
-|------|-------|
-| Wire in main.py | Loop over pairs, call workflow steps |
-| Output format | Print to stdout or write JSON |
-| Env | `OPENAI_API_KEY` from env (LangChain default) |
-
----
-
-## Quick reference
-
-- **Data path:** `data/csvs/Nova.csv` (update config if different)
-- **pair_ids:** `[0, 5, 9, 10, 13]` in config
-- **Models:** All `gpt-4o-mini` by default; set `OPENAI_API_KEY`
+Config: `config.yaml` (data source, pair_ids, agents, rubric, models, interactive).
 
 ---
 
@@ -144,3 +97,4 @@ load_config → load_pairs
 | Date | Change |
 |------|--------|
 | — | Initial plan |
+| — | All phases complete; LangGraph pipeline; interactive CLI |

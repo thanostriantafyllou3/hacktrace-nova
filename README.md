@@ -6,64 +6,49 @@ A multi-agent jury system for the [FactTrace Hackathon](https://github.com/FactT
 
 ## Overview
 
-**Flow:** Parse → Vote → Debate (if split) → Revote → Foreperson → Verdict
+**Flow:** Parse → Initial vote → Debate (if split) → Revote → Foreperson → Verdict
 
-The system anchors debate on a structured **Fact Frame**, runs agents through a **configurable jury**, and uses a **binary rubric** for the final verdict. No black box — agents disagree, argue, and negotiate.
+The system anchors debate on a structured **Fact Frame**, runs agents through a **configurable jury**, and uses a **binary rubric** for the final verdict. Built with LangGraph for orchestration.
 
 ---
 
-## Architecture
+## Quick start
 
-```mermaid
-flowchart TB
-    subgraph Input [1. Input]
-        Data[claim, truth pairs]
-        Parser[Parser]
-        FactFrame[Fact Frame]
-        Data --> Parser --> FactFrame
-    end
+```bash
+# 1. Install dependencies
+uv sync
 
-    subgraph Jury [2. Jury]
-        R0[Round 0: Independent Vote]
-        Split{Verdict split?}
-        Skip[Skip]
-        Debate[Round 1: Debate]
-        R2[Round 2: Revote]
+# 2. Configure API key
+cp .env.example .env
+# Edit .env and set OPENAI_API_KEY=sk-your-key
 
-        FactFrame --> R0
-        R0 --> Split
-        Split -->|Unanimous| Skip
-        Split -->|Split| Debate
-        Skip --> R2
-        Debate --> R2
-    end
-
-    subgraph Verdict [3. Verdict]
-        Foreperson[Foreperson]
-        Output[Verdict Card]
-        R2 --> Foreperson --> Output
-    end
+# 3. Run
+uv run python src/main.py
 ```
 
 ---
 
 ## Configuration
 
-The system is **config-driven** for scalability. Key configurable elements:
+Edit `config.yaml` in the project root:
 
-| Component | Config key | Description |
-|-----------|------------|-------------|
-| **Data source** | `data.source`, `data.claim_col`, `data.truth_col` | Path to CSV, column names |
-| **Pairs to process** | `data.pair_ids` | Which pairs to run (manual selection) |
-| **Agents** | `agents` | List of agent definitions (name, role) |
-| **Fact Frame** | `fact_frame.fields` | Parser output fields (default: entities, quantities, scope, modality, relationship_type, caveats) |
-| **Foreperson** | `foreperson.rubric`, `foreperson.dissent_threshold` | Rubric axes (axis + question), min minority for "strong dissent" |
-| **Debate** | `debate.max_rounds` | Max debate rounds (default: 2) |
-| **Models** | `models.parser`, `models.agents`, `models.foreperson` | Model IDs per component (default: gpt-4o-mini) |
+| Key | Description |
+|-----|-------------|
+| `interactive` | `true` = stream parse, votes, debate, verdict to CLI; `false` = quiet, only final verdict |
+| `data.source` | Path to CSV (relative to project root) |
+| `data.claim_col`, `data.truth_col` | Column names for claim and truth |
+| `data.pair_ids` | 0-indexed row IDs to process (e.g. `[0, 5, 9, 10, 13]`) |
+| `agents` | List of `{name, role}` for jury agents |
+| `foreperson.rubric` | List of `{axis, question}` for binary rubric |
+| `foreperson.dissent_threshold` | Min agents on minority for dissent note |
+| `debate.max_rounds` | Max debate rounds (current: 1 exchange) |
+| `models.parser`, `models.agents`, `models.foreperson` | Model IDs per component |
 
-Example config:
+Example:
 
 ```yaml
+interactive: true
+
 data:
   source: "data/Nova.csv"
   claim_col: "claim"
@@ -92,7 +77,7 @@ foreperson:
       question: "Are hedges and certainty preserved?"
     - axis: context_sufficiency
       question: "Are key caveats, qualifiers, or denominators reflected or not contradicted?"
-  dissent_threshold: 2  # min agents on minority for "strong dissent"
+  dissent_threshold: 2
 
 debate:
   max_rounds: 2
@@ -105,199 +90,194 @@ models:
 
 ---
 
-## Data
+## Architecture
 
-- **Input:** `(claim, truth)` pairs. Source and column names are configurable.
-- **Task:** Determine if the claim faithfully represents the truth or is a mutation.
-- **Selection:** Pairs are specified via config (e.g. `pair_ids`); no automated selector.
+### Flow diagram
 
----
+```mermaid
+flowchart TB
+    START([START]) --> Parse
+    Parse[Parse: Extract Fact Frame]
+    Parse --> InitialVote[Initial Vote: All agents vote in parallel]
 
-## Fact Frame
+    InitialVote --> Route{Verdict split?}
 
-A Parser converts `(claim, truth)` into structured output. All agents receive this to ground debate.
+    Route -->|Yes: some Faithful, some Mutated| Debate[Debate: Mutated speaks → Faithful responds]
+    Route -->|No: unanimous| Revote
 
-| Field | Description |
-|-------|-------------|
-| **entities** | Who/what is referenced (people, organizations, concepts) |
-| **quantities** | Numbers, units, percentages, denominators (from both claim and truth) |
-| **scope** | Region, group, timeframe, population (who/where/when it applies to) |
-| **modality** | Certainty level (may, likely, caused, proved, approximately) |
-| **relationship_type** | Correlation vs causation vs description |
-| **caveats** | Limitations, assumptions, qualifiers, conditions |
+    Debate --> Revote[Revote: All agents vote again]
 
-**Parser output schema:**
-```json
-{
-  "entities": ["entity1", "entity2"],
-  "quantities": [{"value": "...", "unit": "...", "in_claim": true, "in_truth": true}],
-  "scope": {"region": "...", "group": "...", "timeframe": "..."},
-  "modality": "may|likely|caused|proved|approximately|other",
-  "relationship_type": "correlation|causation|description",
-  "caveats": ["caveat1", "caveat2"]
-}
+    Revote --> Foreperson[Foreperson: Apply rubric → Verdict]
+    Foreperson --> END([END])
+
+    subgraph Jury [Jury State]
+        FactFrame[Fact Frame]
+        InitialOutputs[Initial vote outputs]
+        Transcript[Debate transcript]
+        RevoteOutputs[Revote outputs]
+        Verdict[Final Verdict]
+    end
 ```
 
----
+### Phase-by-phase analysis
 
-## Agents
+#### Phase 1: Parse
 
-| Dimension | Agent | Question |
-|-----------|-------|----------|
-| **Precision** | Literal | Do numbers, dates, and explicit statements match? |
-| **Meaning** | Context | Is important nuance preserved, or is something misleadingly omitted or shifted? |
-| **Advocate** | Steelman | What's the best interpretation of the claim? |
-| **Challenger** | Sceptic | What's the worst interpretation? Where could it mislead? |
+**Goal:** Convert the raw `(claim, truth)` pair into a structured **Fact Frame** that grounds all subsequent debate.
 
-Literal and Context are specialists; Steelman and Sceptic drive debate on borderline cases.
+**Process:**
+- A single LLM call (parser agent) receives claim and truth
+- Extracts key facts as a list of `Fact` objects: `category`, `claim_says`, `truth_says`, `note`
+- Categories are free-form (e.g. numeric, entity, temporal, causal, certainty)
+- Each fact compares what the claim states vs what the truth states; `note` flags mismatches, omissions, or additions
 
----
+**Output:** `FactFrame` (list of facts). All jury agents receive this—no agent sees raw claim/truth alone for their vote; debate is anchored on shared structured facts.
 
-## Protocol
-
-### Round 0 — Independent Vote
-
-- **Input:** `claim`, `truth`, `fact_frame` (per agent)
-- **Execution:** All agents run in parallel; no cross-talk
-- **Output:** `verdict` (Faithful/Mutated), `confidence`, `key_evidence`, `reasoning`
-
-Agent output schema (minimal structure; no fixed taxonomy):
-```json
-{
-  "verdict": "Faithful|Mutated",
-  "confidence": 0.0,
-  "key_evidence": [
-    {"field": "quantities|scope|...", "claim_says": "...", "truth_says": "...", "issue": "..."}
-  ],
-  "reasoning": "Free-form explanation"
-}
-```
-
-### Round 1 — Debate (only if verdict split)
-
-**When:** At least one Faithful and one Mutated. Otherwise skip to Round 2.
-
-**Flow (rule-based, no Moderator):**
-1. **Constructives:** Mutated side presents → Faithful side presents
-2. **Rebuttals:** Mutated rebuts → Faithful rebuts
-3. **Check:** Run LLM checker: "Did the last round add substantive new reasoning? Yes/No"
-4. If No → stop. If Yes and rounds < max → repeat from step 2. Else stop.
-
-**Stopping conditions:**
-- **No new arguments:** LLM checker returns No
-- **Max rounds:** Reached `debate.max_rounds`
-- (Consensus is detected at Revote; no mid-debate poll)
-
-**Who speaks:** Agents are assigned to sides by their Round 0 verdict. Each side designates speakers (e.g. one per side per round, or all on that side contribute).
-
-### Round 2 — Revote
-
-- **Input:** Debate transcript (empty if skipped), Round 0 outputs
-- **Execution:** All agents run in parallel
-- **Output:** Updated `verdict`, `confidence`
-
-### Foreperson
-
-- **Input:** Fact Frame, debate transcript, Round 2 outputs
-- **Process:** Answers 5 binary questions (Yes/No), applies aggregation rules
-- **Output:** Verdict (Faithful/Mutated/Ambiguous), confidence, reasoning, minimal_edit (if Mutated), dissent_note (if any)
-
-**Verdict rubric (5 axes, each Yes/No):**
-
-| Axis | Question |
-|------|----------|
-| **numeric_fidelity** | Are all numbers, units, and percentages in the claim supported by the truth? |
-| **scope_fidelity** | Are who/where/when (entities, region, timeframe) correctly represented? |
-| **causal_fidelity** | Does the claim avoid causal leaps (X caused Y) not supported by the truth? |
-| **certainty_fidelity** | Are hedges and certainty preserved? (e.g. "may" not turned into "proves") |
-| **context_sufficiency** | Are key caveats, qualifiers, or denominators reflected or at least not contradicted? |
-
-**Aggregation:**
-- **Faithful:** All 5 = Yes
-- **Ambiguous:** 3–4 Yes AND strong dissent (2+ agents on minority verdict)
-- **Mutated:** Otherwise
-
-Agents output free-form reasoning; the system does not use a fixed mutation taxonomy (e.g., the one manually defined in [docs/DATASET_ANALYSIS.md](docs/DATASET_ANALYSIS.md) for Nova.csv).
+**Config:** `models.parser`
 
 ---
 
-## Project Structure
+#### Phase 2: Initial Vote
+
+**Goal:** Each jury agent independently decides Faithful or Mutated, with no cross-talk.
+
+**Process:**
+- All agents run in **parallel** via LangChain `RunnableParallel`
+- Each agent gets: role instruction, claim, truth, fact frame
+- Agents use `vote_template.txt` + role-specific prompt (`literal.txt`, `context.txt`, etc.)
+- Structured output: `verdict` (Faithful/Mutated), `confidence`, `evidence`, `reasoning`
+
+**Output:** List of `(agent_name, JuryOutput)`. Used to detect split and, if no debate, passed directly to Foreperson via revote path.
+
+**Agents:**
+| Agent | Focus |
+|-------|-------|
+| literal | Numbers, dates, explicit statements—do they match? |
+| context | Nuance, caveats, qualifiers—is important context preserved? |
+| steelman | Best interpretation of the claim—charitable reading |
+| sceptic | Worst interpretation—where could it mislead? |
+
+**Config:** `agents`, `models.agents`
+
+---
+
+#### Phase 3: Debate (conditional)
+
+**Goal:** When verdict is split, agents argue to surface key disagreements before revote.
+
+**When it runs:** Only if at least one agent voted Faithful and at least one Mutated. If unanimous, skip to Revote.
+
+**Process:**
+- Agents are split into two sides by their initial verdict
+- **One exchange:** Mutated side presents (one agent speaks) → Faithful side responds (one agent speaks)
+- Debate uses `debate_template.txt`; each speaker keeps their role instruction, sees claim, truth, fact frame, and the other side’s reasoning/argument
+- Output is a **transcript** of 2 entries: `{speaker, content}`
+
+**Output:** Transcript appended to state. Revote agents receive this transcript and “Consider the arguments above before voting.”
+
+**Config:** `debate.max_rounds` (currently 1 exchange per run)
+
+---
+
+#### Phase 4: Revote
+
+**Goal:** All agents vote again, optionally informed by the debate transcript.
+
+**Process:**
+- Same mechanism as Initial Vote (`run_vote`) but with optional `transcript`
+- If debate ran: transcript is injected into the prompt; agents see the exchange before voting
+- If debate was skipped: `transcript` is empty; agents vote again on the same fact frame (effectively a second independent vote, though typically unanimous cases need no revote—current flow runs revote in both paths for consistency)
+
+**Output:** List of `(agent_name, JuryOutput)`. This is the final jury stance passed to the Foreperson.
+
+**Config:** Same as Initial Vote
+
+---
+
+#### Phase 5: Foreperson
+
+**Goal:** Apply a config-driven binary rubric and produce the final Verdict.
+
+**Process:**
+- Receives: claim, truth, fact frame, debate transcript, revote outputs
+- Rubric axes from config (e.g. numeric_fidelity, scope_fidelity, causal_fidelity, certainty_fidelity, context_sufficiency)
+- For each axis: Yes/No (passed/failed) plus optional note
+- Aggregation:
+  - **Faithful:** All axes passed
+  - **Mutated:** At least one axis failed
+  - **Ambiguous:** Edge case with significant dissent
+- Optional: `minimal_edit` (if Mutated), `dissent_note` (if ≥ `dissent_threshold` agents on minority)
+
+**Output:** `Verdict` with `verdict`, `confidence`, `axis_results`, `summary`, `minimal_edit`, `dissent_note`
+
+**Config:** `foreperson.rubric`, `foreperson.dissent_threshold`, `models.foreperson`
+
+---
+
+## Project structure
 
 ```
 hacktrace-nova/
-├── main.py
-├── config.yaml                 # or config/
-├── agents/
-│   ├── __init__.py
-│   ├── base.py                 # Base agent interface
-│   ├── parser.py
-│   ├── literal.py
-│   ├── context_guardian.py
-│   ├── steelman.py
-│   ├── sceptic.py
-│   └── foreperson.py
-├── workflow/
-│   ├── __init__.py
-│   ├── pipeline.py             # Main orchestration
-│   ├── debate.py               # Debate loop
-│   └── state.py
-├── schemas/
-│   ├── __init__.py
-│   ├── fact_frame.py
-│   ├── agent_output.py
-│   └── verdict.py
-├── data/
-│   ├── __init__.py
-│   └── loader.py
-├── prompts/                    # Per-agent prompts (configurable paths)
-│   ├── literal.md
-│   ├── context.md
-│   └── ...
+├── config.yaml              # Data, agents, rubric, models, interactive flag
+├── .env.example             # Copy to .env, set OPENAI_API_KEY
+├── pyproject.toml
+├── data/                    # CSV datasets (Nova, Atlas, etc.)
+│   └── Nova.csv
 ├── docs/
-│   └── DATASET_ANALYSIS.md
-└── hacktrace-cam/
-    └── Nova.csv
+│   ├── BUILD_PLAN.md
+│   ├── DATASET_ANALYSIS.md
+│   └── TASK.md
+└── src/
+    ├── main.py              # Entry point
+    ├── config/
+    │   └── loader.py        # YAML config loader
+    ├── data/
+    │   └── loader.py        # CSV pair loader
+    ├── schemas/
+    │   ├── fact_frame.py    # Fact, FactFrame
+    │   ├── jury_output.py   # Evidence, JuryOutput
+    │   └── verdict.py       # AxisResult, Verdict
+    ├── agents/
+    │   ├── parser.py        # Fact Frame extraction
+    │   ├── jury.py          # Jury agents (vote + debate)
+    │   └── foreperson.py    # Final verdict
+    ├── workflow/
+    │   ├── graph.py         # LangGraph pipeline (parse→vote→debate→revote→foreperson)
+    │   ├── state.py         # JuryState
+    │   ├── vote.py          # run_vote, is_split
+    │   └── debate.py        # run_debate
+    └── prompts/
+        ├── parser.txt
+        ├── foreperson.txt
+        └── jury/
+            ├── vote_template.txt
+            ├── debate_template.txt
+            ├── literal.txt
+            ├── context.txt
+            ├── steelman.txt
+            └── sceptic.txt
 ```
 
 ---
 
-## Setup
+## Schemas
 
-```bash
-uv sync
-cp .env.example .env
-```
+**FactFrame** (`fact_frame.py`): List of `Fact` with `category`, `claim_says`, `truth_says`, `note`.
 
-Edit `.env` and add your OpenAI API key:
+**JuryOutput** (`jury_output.py`): `verdict` (Faithful/Mutated), `confidence`, `evidence` (list of Fact+issue), `reasoning`.
 
-```
-OPENAI_API_KEY=sk-your-key-here
-```
-
----
-
-## Usage
-
-From the project root:
-
-```bash
-uv run python src/main.py
-```
-
-This runs the full jury pipeline on the claim/truth pairs defined in `config.yaml` (`data.pair_ids`). Each pair goes through: Parse → Initial vote → Debate (if split) → Revote → Foreperson → Verdict.
-
-**Cost control:** Configure model IDs per component in `config.yaml` (e.g. `gpt-4o-mini` for dev, `gpt-4o` for production).
+**Verdict** (`verdict.py`): `verdict`, `confidence`, `axis_results` (one per rubric axis: axis, passed, note), `summary`, `minimal_edit`, `dissent_note`.
 
 ---
 
 ## Dependencies
 
-- langchain
-- langchain-openai
-- langgraph (optional, for orchestration)
+- langchain, langchain-openai
+- langgraph
+- PyYAML, pydantic-settings, python-dotenv
 
 ---
 
 ## License
 
-See [hacktrace-cam/LICENSE](hacktrace-cam/LICENSE).
+See [data/LICENSE](data/LICENSE).
