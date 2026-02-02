@@ -20,7 +20,7 @@ RUBRIC: For each axis below, answer Yes or No (passed = Yes).
 ---
 
 Produce a Verdict with:
-- verdict: Faithful (all axes passed), Mutated (at least one failed), or Ambiguous (close call with dissent)
+- verdict: Faithful (all axes passed) or Mutated (at least one failed). Must choose one; no Ambiguous.
 - confidence: 0.0 to 1.0
 - axis_results: One entry per rubric axis with axis name, passed (bool), and optional note
 - summary: Brief explanation of your verdict

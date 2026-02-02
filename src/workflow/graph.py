@@ -42,7 +42,6 @@ def _route_after_debate(state: JuryState) -> str:
     if "conceded" in status or "no new arguments" in status:
         return "revote"
     if s.debate_round_idx >= max_rounds:
-        print(f"Debate reached max rounds ({max_rounds})")
         return "revote"
     return "debate"
 
@@ -225,6 +224,8 @@ def _print_step(node_name: str, update: dict, state: dict, prev_state: dict, pri
             if tts_on and content:
                 speak(f"{speaker} says: {content}", config, role=speaker)
         status = update.get("debate_status")
+        if state.get('debate_round_idx', 0) == config.get("debate", {}).get("max_rounds", 2):
+            status = "Max debate rounds reached."
         if status is not None:
             print_fn(f"    Debate status: {status}")
 

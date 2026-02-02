@@ -1,0 +1,19 @@
+{
+  "_source": "DATASET_ANALYSIS.md",
+  "_note": "faithful = Faithful; any mutation type = Mutated. Pair IDs are 0-indexed.",
+  "0": "Mutated",
+  "1": "Mutated",
+  "2": "Mutated",
+  "3": "Mutated",
+  "4": "Mutated",
+  "5": "Mutated",
+  "6": "Faithful",
+  "7": "Faithful",
+  "8": "Faithful",
+  "9": "Mutated",
+  "10": "Mutated",
+  "11": "Mutated",
+  "12": "Mutated",
+  "13": "Mutated",
+  "14": "Mutated"
+}

@@ -236,7 +236,6 @@ flowchart TB
 - Aggregation:
   - **Faithful:** All axes passed
   - **Mutated:** At least one axis failed
-  - **Ambiguous:** Edge case with significant dissent
 - Optional: `minimal_edit` (if Mutated), `dissent_note` (if significant jury dissent)
 
 **Output:** `Verdict` with `verdict`, `confidence`, `axis_results`, `summary`, `minimal_edit`, `dissent_note`
@@ -257,7 +256,13 @@ hacktrace-nova/
 ├── docs/
 │   ├── BUILD_PLAN.md
 │   ├── DATASET_ANALYSIS.md
+│   ├── EVAL_PLAN.md
 │   └── TASK.md
+├── eval/
+│   ├── ground_truth.json
+│   ├── run_eval.py
+│   ├── error_analysis.py
+│   └── traces/           # Saved after run_eval
 └── src/
     ├── main.py              # Entry point
     ├── config/
@@ -292,6 +297,22 @@ hacktrace-nova/
             ├── steelman.txt
             └── sceptic.txt
 ```
+
+---
+
+## Eval
+
+Compare the jury system to a single stronger model (e.g. gpt-4o) on accuracy, latency, and cost. Ground truth from `DATASET_ANALYSIS.md`.
+
+```bash
+# Run eval on all 15 Nova pairs (or --pairs 0,5,9 for subset)
+uv run python eval/run_eval.py
+
+# Error analysis: inspect failures and component hints
+uv run python eval/error_analysis.py
+```
+
+Config: `eval.pair_ids`, `eval.baseline_model`. See `docs/EVAL_PLAN.md`.
 
 ---
 

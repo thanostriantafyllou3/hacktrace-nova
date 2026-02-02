@@ -48,6 +48,11 @@ components:
 
 interactive: true  # show parse, votes, debate, verdict as they stream
 
+# Eval: run with uv run python eval/run_eval.py
+eval:
+  pair_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]  # all 15 Nova pairs
+  baseline_model: "gpt-4o"
+
 # ElevenLabs TTS (optional). Set ELEVENLABS_API_KEY in .env
 elevenlabs:
   enabled: false

@@ -1,5 +1,9 @@
+from typing import Literal, Optional
+
 from pydantic import BaseModel, Field
-from typing import Optional
+
+
+VerdictLabel = Literal["Faithful", "Mutated"]
 
 
 class AxisResult(BaseModel):
@@ -18,8 +22,8 @@ class AxisResult(BaseModel):
 
 class Verdict(BaseModel):
     """Final verdict from the Foreperson after applying the rubric."""
-    verdict: str = Field(
-        description="Faithful, Mutated, or Ambiguous",
+    verdict: VerdictLabel = Field(
+        description="Faithful or Mutated",
     )
     confidence: float = Field(
         ge=0.0,
