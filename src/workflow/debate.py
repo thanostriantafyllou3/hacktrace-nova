@@ -28,9 +28,14 @@ def run_debate_round(
 
     debate_config = config.get("debate", {})
     max_rounds = debate_config.get("max_rounds", 2)
-    jury_model_name = config.get("models", {}).get("agents", "gpt-4o-mini")
-    status_model_name = config.get("models", {}).get("debate_status", "gpt-4o-mini")
-    jury_llm = ChatOpenAI(model=jury_model_name)
+    components = config.get("components", {})
+    jury_cfg = components.get("agents", {})
+    status_cfg = components.get("debate_status", {})
+    jury_model_name = jury_cfg.get("model", "gpt-4o-mini")
+    status_model_name = status_cfg.get("model", "gpt-4o-mini")
+    jury_temp = jury_cfg.get("temperature", 0.7)
+    status_temp = status_cfg.get("temperature", 0.7)
+    jury_llm = ChatOpenAI(model=jury_model_name, temperature=jury_temp)
     debate_template = load_jury_template("debate_template")
     fact_frame_str = fact_frame.model_dump_json(indent=2)
     mutated_args = "\n".join(f"{n}: {o.reasoning}" for n, o in mutated)
@@ -85,7 +90,7 @@ def run_debate_round(
     transcript.append({"speaker": speaker, "content": content, "side": output.verdict})
 
     # Check concession or no new arguments
-    status_llm = ChatOpenAI(model=status_model_name)
+    status_llm = ChatOpenAI(model=status_model_name, temperature=status_temp)
     status_template = load("debate_status_check.txt")
     status = _check_debate_status(transcript, status_template, status_llm)
 

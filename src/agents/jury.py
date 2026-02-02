@@ -7,8 +7,10 @@ from prompts import load_jury_template, load_role_instruction
 
 def _create_jury(config: dict) -> ChatOpenAI:
     """Create a jury agent with structured output (JuryOutput)."""
-    model_name = config.get("models", {}).get("agents", "gpt-4o-mini")
-    llm = ChatOpenAI(model=model_name)
+    cfg = config.get("components", {}).get("agents", {})
+    model_name = cfg.get("model", "gpt-4.1-mini")
+    temperature = cfg.get("temperature", 0.2)
+    llm = ChatOpenAI(model=model_name, temperature=temperature)
     return llm.with_structured_output(JuryOutput)
 
 

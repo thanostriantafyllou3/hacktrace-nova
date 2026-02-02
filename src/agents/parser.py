@@ -7,8 +7,10 @@ from prompts import load
 
 def _create_parser(config: dict) -> ChatOpenAI:
     """Create a parser agent that extracts a FactFrame from a (claim, truth) pair."""
-    model_name = config.get("models", {}).get("parser", "gpt-4o-mini")
-    model = ChatOpenAI(model=model_name)
+    cfg = config.get("components", {}).get("parser", {})
+    model_name = cfg.get("model", "gpt-4.1-mini")
+    temperature = cfg.get("temperature", 0.2)
+    model = ChatOpenAI(model=model_name, temperature=temperature)
     return model.with_structured_output(FactFrame)
 
 

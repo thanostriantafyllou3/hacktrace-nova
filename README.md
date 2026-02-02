@@ -42,7 +42,7 @@ Edit `config.yaml` in the project root:
 | `agents` | List of `{name, role}` for jury agents |
 | `foreperson.rubric` | List of `{axis, question}` for binary rubric |
 | `debate.max_rounds` | Max back-and-forth rounds; debate also stops early on concession or no new arguments |
-| `models.parser`, `models.agents`, `models.debate_status`, `models.foreperson` | Model IDs per component |
+| `components` | Per-component `model` and `temperature`: parser, agents, debate_status, foreperson |
 | `elevenlabs.enabled` | `true` = speak each phase aloud via ElevenLabs TTS |
 | `elevenlabs.voices` | Voice IDs per role: narrator, literal, context, steelman, sceptic, foreperson |
 
@@ -90,11 +90,19 @@ foreperson:
 debate:
   max_rounds: 2
 
-models:
-  parser: "gpt-4.1-mini"
-  agents: "gpt-4.1-mini"
-  debate_status: "gpt-4.1-mini"
-  foreperson: "gpt-4.1-mini"
+components:
+  parser:
+    model: "gpt-4.1-mini"
+    temperature: 0.2
+  agents:
+    model: "gpt-4.1-mini"
+    temperature: 0.2
+  debate_status:
+    model: "gpt-4.1-mini"
+    temperature: 0.2
+  foreperson:
+    model: "gpt-4.1-mini"
+    temperature: 0.2
 
 # Optional: ElevenLabs TTS
 elevenlabs:
@@ -154,7 +162,7 @@ flowchart TB
 
 **Output:** `FactFrame` (list of facts). All jury agents receive this—no agent sees raw claim/truth alone for their vote; debate is anchored on shared structured facts.
 
-**Config:** `models.parser`
+**Config:** `components.parser`
 
 ---
 
@@ -178,7 +186,7 @@ flowchart TB
 | steelman | Best interpretation of the claim—charitable reading |
 | sceptic | Worst interpretation—where could it mislead? |
 
-**Config:** `agents`, `models.agents`
+**Config:** `agents`, `components.agents`
 
 ---
 
@@ -233,7 +241,7 @@ flowchart TB
 
 **Output:** `Verdict` with `verdict`, `confidence`, `axis_results`, `summary`, `minimal_edit`, `dissent_note`
 
-**Config:** `foreperson.rubric`, `models.foreperson`
+**Config:** `foreperson.rubric`, `components.foreperson`
 
 ---
 

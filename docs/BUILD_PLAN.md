@@ -16,7 +16,7 @@
 
 ## Phase 1: Setup ✅
 
-- [x] `config.yaml` with data, agents, rubric, models, interactive flag
+- [x] `config.yaml` with data, agents, rubric, components, interactive flag
 - [x] `config/loader.py` — YAML loader
 - [x] `data/loader.py` — CSV loader: `pair_ids` (list, `"random-N"`, or `"all"`), `seed` for random; returns `{id, claim, truth}`
 - [x] `main.py` — loads config, pairs, runs pipeline (interactive or quiet)
@@ -38,7 +38,7 @@
 
 - [x] `prompts/parser.txt` — instructs LLM to extract facts
 - [x] `agents/parser.py` — ChatOpenAI + `with_structured_output(FactFrame)`
-- [x] Config: `models.parser`
+- [x] Config: `components.parser` (model, temperature)
 
 ---
 
@@ -57,7 +57,7 @@
 - [x] `prompts/debate_status_check.txt` — LLM checks concession / no new arguments
 - [x] `schemas/debate_status.py` — `DebateStatus` (conceded, no_new_arguments)
 - [x] `workflow/debate.py` — `run_debate_round()`: per-round Mutated ↔ Faithful; speakers rotate; graph controls loop
-- [x] Early termination: max rounds, concession, or no new arguments (LLM checker); config: `models.debate_status`
+- [x] Early termination: max rounds, concession, or no new arguments (LLM checker); config: `components.debate_status`
 
 ---
 
@@ -90,7 +90,7 @@ cp .env.example .env   # set OPENAI_API_KEY
 uv run python src/main.py
 ```
 
-Config: `config.yaml` (data source, pair_ids, agents, rubric, models, interactive).
+Config: `config.yaml` (data source, pair_ids, agents, rubric, components, interactive).
 
 ---
 
@@ -102,3 +102,4 @@ Config: `config.yaml` (data source, pair_ids, agents, rubric, models, interactiv
 | — | All phases complete; LangGraph pipeline; interactive CLI |
 | — | Debate: multi-round with early stop (max_rounds, concession, no_new_arguments) |
 | — | Debate: per-round `run_debate_round`, graph-controlled loop; `debate_status_check.txt` at prompts root |
+| — | Config: `models` → `components` (each with model, temperature) |

@@ -16,8 +16,10 @@ def run_foreperson(
     config: dict,
 ) -> Verdict:
     """Run Foreperson to produce final Verdict."""
-    model_name = config.get("models", {}).get("foreperson", "gpt-4o-mini")
-    llm = ChatOpenAI(model=model_name).with_structured_output(Verdict)
+    cfg = config.get("components", {}).get("foreperson", {})
+    model_name = cfg.get("model", "gpt-4.1-mini")
+    temperature = cfg.get("temperature", 0.2)
+    llm = ChatOpenAI(model=model_name, temperature=temperature).with_structured_output(Verdict)
 
     prompt = load("foreperson.txt").format(
         claim=claim,
