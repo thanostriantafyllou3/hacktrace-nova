@@ -11,4 +11,5 @@ dependencies = [
     "PyYAML",
     "pydantic-settings",
     "python-dotenv",
+    "elevenlabs",
 ]

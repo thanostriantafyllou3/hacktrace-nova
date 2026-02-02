@@ -43,6 +43,15 @@ Edit `config.yaml` in the project root:
 | `foreperson.dissent_threshold` | Min agents on minority for dissent note |
 | `debate.max_rounds` | Max debate rounds (current: 1 exchange) |
 | `models.parser`, `models.agents`, `models.foreperson` | Model IDs per component |
+| `elevenlabs.enabled` | `true` = speak each phase aloud via ElevenLabs TTS |
+| `elevenlabs.voices` | Voice IDs per role: narrator, literal, context, steelman, sceptic, foreperson |
+
+**ElevenLabs TTS** (optional): When enabled and `ELEVENLABS_API_KEY` is set, the pipeline speaks aloud:
+1. Narrator presents the claim and truth
+2. Narrator reads the extracted facts
+3. Each jury agent speaks their vote and reasoning (distinct voices)
+4. Debate speakers present their arguments
+5. Foreperson explains the rubric, verdict, and summary
 
 Example:
 
@@ -86,6 +95,18 @@ models:
   parser: "gpt-4o-mini"
   agents: "gpt-4o-mini"
   foreperson: "gpt-4o-mini"
+
+# Optional: ElevenLabs TTS
+elevenlabs:
+  enabled: false
+  model_id: "eleven_multilingual_v2"
+  voices:
+    narrator: "EXAVITQu4vr4xnSDxMaL"
+    literal: "pNInz6obpgDQGcFmaJgB"
+    context: "TxGEqnHWrfWFTfGW9XjX"
+    steelman: "ErXwobaYiN019PkySvjV"
+    sceptic: "GBv7mTt0atIp3Br8iCZE"
+    foreperson: "IKne3meq5aSn9XLyUdCD"
 ```
 
 ---
@@ -246,6 +267,8 @@ hacktrace-nova/
     │   ├── state.py         # JuryState
     │   ├── vote.py          # run_vote, is_split
     │   └── debate.py        # run_debate
+    ├── audio/
+    │   └── tts.py           # ElevenLabs TTS (speak, is_available)
     └── prompts/
         ├── parser.txt
         ├── foreperson.txt
@@ -274,6 +297,7 @@ hacktrace-nova/
 
 - langchain, langchain-openai
 - langgraph
+- elevenlabs (for optional TTS)
 - PyYAML, pydantic-settings, python-dotenv
 
 ---

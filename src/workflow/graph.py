@@ -119,14 +119,19 @@ def run_pipeline(claim: str, truth: str, config: dict) -> dict:
 
 
 def run_pipeline_interactive(
-    claim: str, truth: str, config: dict, *, print_fn=None
+    claim: str, truth: str, config: dict, *, print_fn=None, speak_intro: bool = True
 ) -> dict:
     """
     Run the pipeline with interactive CLI output: shows parse, votes, debate, verdict.
     Uses streaming to print each step as it completes.
+    When ElevenLabs is enabled, speaks each phase aloud.
     """
     if print_fn is None:
         print_fn = print
+
+    # Optional TTS: present claim and truth before pipeline
+    if speak_intro:
+        _speak_intro(claim, truth, config)
 
     compiled = build_graph()
     initial = {"claim": claim, "truth": truth, "config": config}
@@ -135,13 +140,31 @@ def run_pipeline_interactive(
     for chunk in compiled.stream(initial, stream_mode="updates"):
         for node_name, update in chunk.items():
             state.update(update)
-            _print_step(node_name, update, state, print_fn)
+            _print_step(node_name, update, state, print_fn, config)
 
     return state
 
 
-def _print_step(node_name: str, update: dict, state: dict, print_fn):
-    """Format and print one pipeline step."""
+def _speak_intro(claim: str, truth: str, config: dict) -> None:
+    """Speak claim and truth (narrator) when TTS enabled."""
+    try:
+        from audio import is_available, speak
+    except ImportError:
+        return
+    if not is_available(config):
+        return
+    intro = f"The claim is: {claim} The truth states: {truth}"
+    speak(intro, config, role="narrator")
+
+
+def _print_step(node_name: str, update: dict, state: dict, print_fn, config: dict):
+    """Format and print one pipeline step. Optionally speak via ElevenLabs."""
+    try:
+        from audio import is_available, speak
+        tts_on = is_available(config)
+    except ImportError:
+        tts_on = False
+
     if node_name == "parse":
         fact_frame = update.get("fact_frame")
         if fact_frame and hasattr(fact_frame, "facts"):
@@ -152,6 +175,12 @@ def _print_step(node_name: str, update: dict, state: dict, print_fn):
                 ts = (fact.truth_says or "")
                 note = f" [{fact.note}]" if fact.note else ""
                 print_fn(f"    {i}. {fact.category}: claim=\"{cs}\" truth=\"{ts}\"{note}")
+            if tts_on:
+                facts_text = " ".join(
+                    f"Fact {i}: {f.category}. Claim says {f.claim_says or 'nothing'}. Truth says {f.truth_says or 'nothing'}. {f.note or ''}"
+                    for i, f in enumerate(fact_frame.facts, 1)
+                )
+                speak(f"Here are the extracted facts. {facts_text}", config, role="narrator")
 
     elif node_name == "initial_vote":
         outputs = update.get("initial_vote_outputs", [])
@@ -160,6 +189,9 @@ def _print_step(node_name: str, update: dict, state: dict, print_fn):
             icon = "✅" if out.verdict.strip().lower() == "faithful" else "❌"
             print_fn(f"    {icon} {name}: {out.verdict} (confidence {out.confidence:.2f})")
             print_fn(f"       └ {out.reasoning}")
+            if tts_on:
+                role_name = name.replace("_", " ").title()
+                speak(f"The {role_name} votes {out.verdict}. Their reasoning: {out.reasoning}", config, role=name)
 
     elif node_name == "debate":
         transcript = update.get("transcript", [])
@@ -168,6 +200,8 @@ def _print_step(node_name: str, update: dict, state: dict, print_fn):
             speaker = t.get("speaker", "Agent")
             content = (t.get("content", "") or "").strip()
             print_fn(f"    {speaker}: {content}")
+            if tts_on and content:
+                speak(f"{speaker} says: {content}", config, role=speaker)
         if not transcript:
             print_fn("    (No debate - unanimous)")
 
@@ -182,6 +216,9 @@ def _print_step(node_name: str, update: dict, state: dict, print_fn):
             icon = "✅" if out.verdict.strip().lower() == "faithful" else "❌"
             print_fn(f"    {icon} {name}: {out.verdict} (confidence {out.confidence:.2f})")
             print_fn(f"       └ {out.reasoning}")
+            if tts_on:
+                role_name = name.replace("_", " ").title()
+                speak(f"The {role_name} votes {out.verdict}. Their reasoning: {out.reasoning}", config, role=name)
 
     elif node_name == "foreperson":
         verdict = update.get("verdict")
@@ -196,3 +233,9 @@ def _print_step(node_name: str, update: dict, state: dict, print_fn):
                 print_fn(f"  Minimal edit: {verdict.minimal_edit}")
             if verdict.dissent_note:
                 print_fn(f"  Dissent: {verdict.dissent_note}")
+            if tts_on:
+                rubric_parts = " ".join(f"{ar.axis}: {'Yes' if ar.passed else 'No'}" for ar in verdict.axis_results)
+                foreperson_text = f"Applying the rubric. {rubric_parts}. The verdict is {verdict.verdict}. Summary: {verdict.summary}"
+                if verdict.minimal_edit:
+                    foreperson_text += f" Minimal edit suggestion: {verdict.minimal_edit}"
+                speak(foreperson_text, config, role="foreperson")

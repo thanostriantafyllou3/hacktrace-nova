@@ -1,5 +1,3 @@
-interactive: true  # show parse, votes, debate, verdict as they stream
-
 data:
   source: "data/Nova.csv"
   claim_col: "claim"
@@ -37,3 +35,18 @@ models:
   parser: "gpt-4.1-mini"
   agents: "gpt-4.1-mini"
   foreperson: "gpt-4.1-mini"
+
+interactive: true  # show parse, votes, debate, verdict as they stream
+
+# ElevenLabs TTS (optional). Set ELEVENLABS_API_KEY in .env
+elevenlabs:
+  enabled: true
+  model_id: "eleven_multilingual_v2"
+  max_chars_per_utterance: 2000
+  voices:
+    narrator: "EXAVITQu4vr4xnSDxMaL"   # Sarah - presents claim, truth, facts
+    literal: "pNInz6obpgDQGcFmaJgB"    # Adam
+    context: "TxGEqnHWrfWFTfGW9XjX"    # Josh
+    steelman: "ErXwobaYiN019PkySvjV"   # Antoni
+    sceptic: "GBv7mTt0atIp3Br8iCZE"    # Thomas
+    foreperson: "IKne3meq5aSn9XLyUdCD" # Charlie
