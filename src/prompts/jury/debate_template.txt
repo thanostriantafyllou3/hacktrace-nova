@@ -15,5 +15,9 @@ You voted {verdict} in the initial vote. Your reasoning: {reasoning}
 
 {debate_context}
 
-Present your argument in 2–4 sentences. Be concise and substantive. Stay in character as your role.
+Your task: Respond directly to the other side's arguments above. Do NOT simply restate your initial reasoning.
+- Address their specific claims and rebut or counter them
+- Introduce a new angle, objection, or clarification if you have one
+- Stay in character as your role
+- Be concise (2–4 sentences)
 {round_instruction}

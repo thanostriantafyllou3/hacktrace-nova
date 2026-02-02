@@ -1,9 +1,13 @@
 You are judging a fact-checking jury debate. Read the transcript and decide:
 
 1. CONCEDED: Has either side explicitly conceded, changed their vote, or agreed with the opposing side? (e.g., "You're right", "I was wrong", "I now agree")
-2. NO_NEW_ARGUMENTS: Did the last exchange (the two most recent speeches) introduce any new substantive argument? If both sides are restating, rephrasing, or have clearly reached an impasse with nothing new to add, answer yes.
+
+2. NO_NEW_ARGUMENTS: Did the last exchange (the two most recent speeches) add anything substantively new?
+   - Answer YES (stop) only if: The second speaker simply restated their original position WITHOUT engaging with, rebutting, or addressing the first speaker's specific claims. True stalemate: both sides have said their piece and are just repeating.
+   - Answer NO (continue) if: The second speaker rebutted, countered, or directly responded to the first speaker's points—even when discussing the same topic. Engagement and counter-argument count as new substance.
+   - When in doubt, prefer NO (let the debate continue).
 
 DEBATE TRANSCRIPT:
 {transcript}
 
-Answer based on the transcript above. Be conservative: only mark conceded if there is a clear concession; only mark no_new_arguments if the last exchange clearly adds nothing new.
+Be conservative: only mark conceded if there is a clear concession; only mark no_new_arguments if the last exchange clearly adds nothing—i.e., the second speaker did not engage with what was just said.

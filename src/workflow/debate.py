@@ -16,7 +16,7 @@ def run_debate(
     """
     Run multi-round debate: Mutated and Faithful alternate.
     Stops when: max_rounds reached, either side concedes, or no new arguments.
-    Returns transcript: [{"speaker": str, "content": str, "initial_vote_output": JuryOutput}, ...]
+    Returns transcript: [{"speaker": str, "content": str, "side": str}, ...]
     """
     mutated = [(n, o) for n, o in initial_vote_outputs if o.verdict.strip().lower() == "mutated"]
     faithful = [(n, o) for n, o in initial_vote_outputs if o.verdict.strip().lower() == "faithful"]
@@ -46,7 +46,7 @@ def run_debate(
             round_instruction = ""
         else:
             debate_context = _format_transcript(transcript)
-            round_instruction = "Respond to the latest arguments from the Faithful side."
+            round_instruction = "Focus on the most recent exchange."
         prompt = template.format(
             role_instruction=role_instruction.strip(),
             claim=claim,
@@ -59,7 +59,7 @@ def run_debate(
         )
         response = llm.invoke(prompt)
         content = response.content if hasattr(response, "content") else str(response)
-        transcript.append({"speaker": speaker, "content": content, "initial_vote_output": output})
+        transcript.append({"speaker": speaker, "content": content, "side": output.verdict})
 
         # Check concession
         should_stop, status = _should_stop(transcript, status_prompt_tpl, llm)
@@ -75,7 +75,7 @@ def run_debate(
             round_instruction = ""
         else:
             debate_context = _format_transcript(transcript)
-            round_instruction = "Respond to the latest arguments from the Mutated side."
+            round_instruction = "Focus on the most recent exchange."
         prompt = template.format(
             role_instruction=role_instruction.strip(),
             claim=claim,
@@ -88,7 +88,7 @@ def run_debate(
         )
         response = llm.invoke(prompt)
         content = response.content if hasattr(response, "content") else str(response)
-        transcript.append({"speaker": speaker, "content": content, "initial_vote_output": output})
+        transcript.append({"speaker": speaker, "content": content, "side": output.verdict})
 
         # Check concession or no new arguments
         should_stop, status = _should_stop(transcript, status_prompt_tpl, llm)
@@ -100,7 +100,7 @@ def run_debate(
 
 
 def _format_transcript(transcript: list[dict]) -> str:
-    lines = [f"{t['speaker']} (initial vote: {t['initial_vote_output'].verdict}): {t['content']}" for t in transcript]
+    lines = [f"{t['speaker']} (side: {t['side']}): {t['content']}" for t in transcript]
     return "Debate so far:\n" + "\n\n".join(lines)
 
 
@@ -114,7 +114,7 @@ def _should_stop(
     if len(transcript) < 2:
         return False, None
     formatted = "\n\n".join(
-        f"{t['speaker']} (initial vote: {t['initial_vote_output'].verdict}): {t['content']}" for t in transcript
+        f"{t['speaker']} (side: {t['side']}): {t['content']}" for t in transcript
     )
     prompt = prompt_template.format(transcript=formatted)
     checker = llm.with_structured_output(DebateStatus)
@@ -123,4 +123,4 @@ def _should_stop(
         return True, "Conceded"
     elif status.no_new_arguments:
         return True, "No new arguments"
-    return False, None
+    return False, "No decision. Debate continues..."
