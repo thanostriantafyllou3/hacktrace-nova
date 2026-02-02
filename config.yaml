@@ -2,8 +2,10 @@ data:
   source: "data/Nova.csv"
   claim_col: "claim"
   truth_col: "truth"
-  pair_ids: [0, 5, 9, 10, 13]  # 0-indexed
-
+  # pair_ids: 0-indexed list, random-X, all
+  pair_ids: "random-5"
+  # for random sampling of pair_ids
+  seed: 42 
 agents:
   - name: literal
     role: "Literal Fact-Checker"
@@ -33,6 +35,7 @@ foreperson:
 models:
   parser: "gpt-4.1-mini"
   agents: "gpt-4.1-mini"
+  debate_status: "gpt-4.1-mini"
   foreperson: "gpt-4.1-mini"
 
 interactive: true  # show parse, votes, debate, verdict as they stream

@@ -7,7 +7,7 @@ This analysis labels and categorizes 15 `(claim, truth)` pairs to understand pat
 
 ## Dataset Overview
 
-- **Source:** `hacktrace-cam/Nova.csv`
+- **Source:** `data/Nova.csv`
 - **Columns:** `claim` (external claim), `truth` (internal fact)
 - **Rows:** 15 pairs
 - **Domains:** COVID-19, entertainment, finance, astronomy, politics, comics

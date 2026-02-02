@@ -18,7 +18,7 @@
 
 - [x] `config.yaml` with data, agents, rubric, models, interactive flag
 - [x] `config/loader.py` — YAML loader
-- [x] `data/loader.py` — CSV loader with `pair_ids` filter, returns `{id, claim, truth}`
+- [x] `data/loader.py` — CSV loader: `pair_ids` (list, `"random-N"`, or `"all"`), `seed` for random; returns `{id, claim, truth}`
 - [x] `main.py` — loads config, pairs, runs pipeline (interactive or quiet)
 - [x] Dirs: `schemas/`, `agents/`, `workflow/`, `prompts/`, `config/`, `data/`
 
@@ -54,10 +54,10 @@
 ## Phase 5: Debate ✅
 
 - [x] `prompts/jury/debate_template.txt` — agents present arguments, respond to transcript
-- [x] `prompts/jury/debate_status_check.txt` — LLM checks concession / no new arguments
+- [x] `prompts/debate_status_check.txt` — LLM checks concession / no new arguments
 - [x] `schemas/debate_status.py` — `DebateStatus` (conceded, no_new_arguments)
-- [x] `workflow/debate.py` — `run_debate()`: multi-round Mutated ↔ Faithful; speakers rotate
-- [x] Early termination: max rounds, concession, or no new arguments (LLM checker)
+- [x] `workflow/debate.py` — `run_debate_round()`: per-round Mutated ↔ Faithful; speakers rotate; graph controls loop
+- [x] Early termination: max rounds, concession, or no new arguments (LLM checker); config: `models.debate_status`
 
 ---
 
@@ -66,7 +66,7 @@
 - [x] `run_vote()` reused with optional `transcript` for revote
 - [x] `prompts/foreperson.txt` — rubric questions from config
 - [x] `agents/foreperson.py` — `run_foreperson()` with structured Verdict
-- [x] `axis_results` per rubric axis; `dissent_note` when minority ≥ dissent_threshold
+- [x] `axis_results` per rubric axis; optional `dissent_note` for significant jury dissent
 
 ---
 
@@ -74,7 +74,7 @@
 
 - [x] LangGraph `StateGraph(JuryState)` in `workflow/graph.py`
 - [x] Nodes: parse, initial_vote, debate, revote, foreperson
-- [x] Conditional edge: split → debate, unanimous → revote
+- [x] Conditional edges: split → debate / unanimous → revote; debate → debate (continue) or → revote (stop)
 - [x] `run_pipeline()` — invoke (quiet)
 - [x] `run_pipeline_interactive()` — stream + print each step
 - [x] `main.py` — loops pairs, uses config `interactive` flag
@@ -101,3 +101,4 @@ Config: `config.yaml` (data source, pair_ids, agents, rubric, models, interactiv
 | — | Initial plan |
 | — | All phases complete; LangGraph pipeline; interactive CLI |
 | — | Debate: multi-round with early stop (max_rounds, concession, no_new_arguments) |
+| — | Debate: per-round `run_debate_round`, graph-controlled loop; `debate_status_check.txt` at prompts root |

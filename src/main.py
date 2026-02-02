@@ -14,7 +14,7 @@ def main():
     interactive = config.get("interactive", True)
     run_fn = run_pipeline_interactive if interactive else run_pipeline
 
-    print(f"Loaded {len(pairs)} pairs: {config['data']['pair_ids']}")
+    print(f"Loaded {len(pairs)} pairs: {[pair['id'] for pair in pairs]}")
     for i, pair in enumerate(pairs):
         print(f"\n{'='*60}")
         print(f"  PAIR {i + 1} (ID: {pair['id']})")

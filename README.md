@@ -37,11 +37,12 @@ Edit `config.yaml` in the project root:
 | `interactive` | `true` = stream parse, votes, debate, verdict to CLI; `false` = quiet, only final verdict |
 | `data.source` | Path to CSV (relative to project root) |
 | `data.claim_col`, `data.truth_col` | Column names for claim and truth |
-| `data.pair_ids` | 0-indexed row IDs to process (e.g. `[0, 5, 9, 10, 13]`) |
+| `data.pair_ids` | 0-indexed row IDs (e.g. `[0, 5, 9, 10, 13]`), `"random-N"` for N random pairs, or `"all"` |
+| `data.seed` | Random seed when `pair_ids` is `"random-N"` |
 | `agents` | List of `{name, role}` for jury agents |
 | `foreperson.rubric` | List of `{axis, question}` for binary rubric |
 | `debate.max_rounds` | Max back-and-forth rounds; debate also stops early on concession or no new arguments |
-| `models.parser`, `models.agents`, `models.foreperson` | Model IDs per component |
+| `models.parser`, `models.agents`, `models.debate_status`, `models.foreperson` | Model IDs per component |
 | `elevenlabs.enabled` | `true` = speak each phase aloud via ElevenLabs TTS |
 | `elevenlabs.voices` | Voice IDs per role: narrator, literal, context, steelman, sceptic, foreperson |
 
@@ -85,7 +86,6 @@ foreperson:
       question: "Are hedges and certainty preserved?"
     - axis: context_sufficiency
       question: "Are key caveats, qualifiers, or denominators reflected or not contradicted?"
-  dissent_threshold: 2
 
 debate:
   max_rounds: 2
@@ -93,6 +93,7 @@ debate:
 models:
   parser: "gpt-4.1-mini"
   agents: "gpt-4.1-mini"
+  debate_status: "gpt-4.1-mini"
   foreperson: "gpt-4.1-mini"
 
 # Optional: ElevenLabs TTS
@@ -228,11 +229,11 @@ flowchart TB
   - **Faithful:** All axes passed
   - **Mutated:** At least one axis failed
   - **Ambiguous:** Edge case with significant dissent
-- Optional: `minimal_edit` (if Mutated), `dissent_note` (if ≥ `dissent_threshold` agents on minority)
+- Optional: `minimal_edit` (if Mutated), `dissent_note` (if significant jury dissent)
 
 **Output:** `Verdict` with `verdict`, `confidence`, `axis_results`, `summary`, `minimal_edit`, `dissent_note`
 
-**Config:** `foreperson.rubric`, `foreperson.dissent_threshold`, `models.foreperson`
+**Config:** `foreperson.rubric`, `models.foreperson`
 
 ---
 
@@ -268,17 +269,17 @@ hacktrace-nova/
     │   ├── graph.py         # LangGraph pipeline (parse→vote→debate→revote→foreperson)
     │   ├── state.py         # JuryState
     │   ├── vote.py          # run_vote, is_split
-    │   └── debate.py        # run_debate
+    │   └── debate.py        # run_debate_round (multi-round debate)
     ├── audio/
     │   └── tts.py           # ElevenLabs TTS (speak, is_available)
     └── prompts/
         ├── parser.txt
         ├── foreperson.txt
-        └── jury/
-        ├── vote_template.txt
-        ├── debate_template.txt
         ├── debate_status_check.txt
-        ├── literal.txt
+        └── jury/
+            ├── vote_template.txt
+            ├── debate_template.txt
+            ├── literal.txt
             ├── context.txt
             ├── steelman.txt
             └── sceptic.txt

@@ -1,11 +1,12 @@
 """LangGraph pipeline: parse → initial_vote → [debate?] → revote → foreperson."""
 
 from langgraph.graph import StateGraph
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.constants import START, END
 
 from .state import JuryState
 from .vote import run_vote, is_split
-from .debate import run_debate
+from .debate import run_debate_round
 from agents import parse, run_foreperson
 
 
@@ -33,16 +34,30 @@ def _route_after_initial_vote(state: JuryState) -> str:
     return "split" if is_split(s.initial_vote_outputs or []) else "unanimous"
 
 
+def _route_after_debate(state: JuryState) -> str:
+    """Decide whether to continue debate or go to revote."""
+    s = _as_state(state)
+    max_rounds = s.config.get("debate", {}).get("max_rounds", 2)
+    status = (s.debate_status or "").strip().lower()
+    if "conceded" in status or "no new arguments" in status:
+        return "revote"
+    if s.debate_round_idx >= max_rounds:
+        print(f"Debate reached max rounds ({max_rounds})")
+        return "revote"
+    return "debate"
+
+
 def _debate_node(state: JuryState) -> dict:
     s = _as_state(state)
-    transcript = run_debate(
+    return run_debate_round(
         s.initial_vote_outputs or [],
         s.claim,
         s.truth,
         s.fact_frame,
         s.config,
+        transcript=s.transcript or [],
+        round_idx=s.debate_round_idx,
     )
-    return {"transcript": transcript, "skipped_debate": False}
 
 
 def _revote_node(state: JuryState) -> dict:
@@ -86,7 +101,7 @@ def _foreperson_node(state: JuryState) -> dict:
     return {"verdict": verdict}
 
 
-def build_graph() -> StateGraph:
+def build_graph() -> CompiledStateGraph:
     """Build and compile the jury pipeline graph."""
     graph = StateGraph(JuryState)
 
@@ -105,7 +120,11 @@ def build_graph() -> StateGraph:
         _route_after_initial_vote,
         {"split": "debate", "unanimous": "revote"},
     )
-    graph.add_edge("debate", "revote")
+    graph.add_conditional_edges(
+        "debate",
+        _route_after_debate,
+        {"revote": "revote", "debate": "debate"},
+    )
     graph.add_edge("revote", "foreperson")
     graph.add_edge("foreperson", END)
 
@@ -139,8 +158,9 @@ def run_pipeline_interactive(
 
     for chunk in compiled.stream(initial, stream_mode="updates"):
         for node_name, update in chunk.items():
+            prev_state = dict(state)
             state.update(update)
-            _print_step(node_name, update, state, print_fn, config)
+            _print_step(node_name, update, state, prev_state, print_fn, config)
 
     return state
 
@@ -157,7 +177,7 @@ def _speak_intro(claim: str, truth: str, config: dict) -> None:
     speak(intro, config, role="narrator")
 
 
-def _print_step(node_name: str, update: dict, state: dict, print_fn, config: dict):
+def _print_step(node_name: str, update: dict, state: dict, prev_state: dict, print_fn, config: dict):
     """Format and print one pipeline step. Optionally speak via ElevenLabs."""
     try:
         from audio import is_available, speak
@@ -195,15 +215,18 @@ def _print_step(node_name: str, update: dict, state: dict, print_fn, config: dic
 
     elif node_name == "debate":
         transcript = update.get("transcript", [])
-        print_fn("\n  💬 DEBATE:")
-        for t in transcript:
+        prev_transcript = prev_state.get("transcript") or []
+        if len(prev_transcript) == 0 and transcript:
+            print_fn("\n  💬 DEBATE:")
+        for t in transcript[len(prev_transcript):]:
             speaker = t.get("speaker", "Agent")
             content = (t.get("content", "") or "").strip()
             print_fn(f"    {speaker}: {content}")
             if tts_on and content:
                 speak(f"{speaker} says: {content}", config, role=speaker)
-        if not transcript:
-            print_fn("    (No debate - unanimous)")
+        status = update.get("debate_status")
+        if status is not None:
+            print_fn(f"    Debate status: {status}")
 
     elif node_name == "revote":
         outputs = update.get("revote_outputs", [])
