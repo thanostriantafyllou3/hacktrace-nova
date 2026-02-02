@@ -13,6 +13,7 @@ EXTRACTED FACTS (from claim vs truth):
 
 You voted {verdict} in the initial vote. Your reasoning: {reasoning}
 
-{other_side_args}
+{debate_context}
 
-Present your main argument in 2–4 sentences. Be concise and substantive. Stay in character as your role.
+Present your argument in 2–4 sentences. Be concise and substantive. Stay in character as your role.
+{round_instruction}

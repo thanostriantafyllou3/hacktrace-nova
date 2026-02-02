@@ -40,8 +40,7 @@ Edit `config.yaml` in the project root:
 | `data.pair_ids` | 0-indexed row IDs to process (e.g. `[0, 5, 9, 10, 13]`) |
 | `agents` | List of `{name, role}` for jury agents |
 | `foreperson.rubric` | List of `{axis, question}` for binary rubric |
-| `foreperson.dissent_threshold` | Min agents on minority for dissent note |
-| `debate.max_rounds` | Max debate rounds (current: 1 exchange) |
+| `debate.max_rounds` | Max back-and-forth rounds; debate also stops early on concession or no new arguments |
 | `models.parser`, `models.agents`, `models.foreperson` | Model IDs per component |
 | `elevenlabs.enabled` | `true` = speak each phase aloud via ElevenLabs TTS |
 | `elevenlabs.voices` | Voice IDs per role: narrator, literal, context, steelman, sceptic, foreperson |
@@ -92,9 +91,9 @@ debate:
   max_rounds: 2
 
 models:
-  parser: "gpt-4o-mini"
-  agents: "gpt-4o-mini"
-  foreperson: "gpt-4o-mini"
+  parser: "gpt-4.1-mini"
+  agents: "gpt-4.1-mini"
+  foreperson: "gpt-4.1-mini"
 
 # Optional: ElevenLabs TTS
 elevenlabs:
@@ -123,7 +122,7 @@ flowchart TB
 
     InitialVote --> Route{Verdict split?}
 
-    Route -->|Yes: some Faithful, some Mutated| Debate[Debate: Mutated speaks → Faithful responds]
+    Route -->|Yes: some Faithful, some Mutated| Debate[Debate: Multi-round Mutated ↔ Faithful until max_rounds, concession, or no new args]
     Route -->|No: unanimous| Revote
 
     Debate --> Revote[Revote: All agents vote again]
@@ -189,14 +188,16 @@ flowchart TB
 **When it runs:** Only if at least one agent voted Faithful and at least one Mutated. If unanimous, skip to Revote.
 
 **Process:**
-- Agents are split into two sides by their initial verdict
-- **One exchange:** Mutated side presents (one agent speaks) → Faithful side responds (one agent speaks)
-- Debate uses `debate_template.txt`; each speaker keeps their role instruction, sees claim, truth, fact frame, and the other side’s reasoning/argument
-- Output is a **transcript** of 2 entries: `{speaker, content}`
+- Agents are split into two sides by their initial verdict (Mutated vs Faithful)
+- **Multi-round:** Mutated speaks, Faithful responds, Mutated rebuts, Faithful rebuts, … up to `max_rounds`
+- Debate uses `debate_template.txt`; status checks use `debate_status_check.txt`
+- Speakers rotate within each side (e.g. round 0: literal, round 1: context); each sees full transcript and responds
+- **Early termination:** max rounds, concession, or no new arguments (LLM check)
+- Output is a **transcript** of `{speaker, content, side}` entries
 
 **Output:** Transcript appended to state. Revote agents receive this transcript and “Consider the arguments above before voting.”
 
-**Config:** `debate.max_rounds` (currently 1 exchange per run)
+**Config:** `debate.max_rounds`
 
 ---
 
@@ -257,7 +258,8 @@ hacktrace-nova/
     ├── schemas/
     │   ├── fact_frame.py    # Fact, FactFrame
     │   ├── jury_output.py   # Evidence, JuryOutput
-    │   └── verdict.py       # AxisResult, Verdict
+    │   ├── verdict.py       # AxisResult, Verdict
+    │   └── debate_status.py # DebateStatus (conceded, no_new_arguments)
     ├── agents/
     │   ├── parser.py        # Fact Frame extraction
     │   ├── jury.py          # Jury agents (vote + debate)
@@ -273,9 +275,10 @@ hacktrace-nova/
         ├── parser.txt
         ├── foreperson.txt
         └── jury/
-            ├── vote_template.txt
-            ├── debate_template.txt
-            ├── literal.txt
+        ├── vote_template.txt
+        ├── debate_template.txt
+        ├── debate_status_check.txt
+        ├── literal.txt
             ├── context.txt
             ├── steelman.txt
             └── sceptic.txt

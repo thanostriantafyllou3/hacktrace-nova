@@ -8,7 +8,7 @@
 | 2. Schemas | ✅ Done | Fact, FactFrame, Evidence, JuryOutput, AxisResult, Verdict |
 | 3. Parser | ✅ Done | Fact Frame extraction via structured output |
 | 4. Jury agents | ✅ Done | Round 0 + Revote via `run_vote`, role-based prompts |
-| 5. Debate | ✅ Done | One exchange (Mutated → Faithful) when split |
+| 5. Debate | ✅ Done | Multi-round (Mutated ↔ Faithful); stops at max_rounds, concession, or no new args |
 | 6. Revote + Foreperson | ✅ Done | Config-driven rubric, axis_results |
 | 7. Pipeline | ✅ Done | LangGraph: parse → initial_vote → [debate] → revote → foreperson |
 
@@ -53,9 +53,11 @@
 
 ## Phase 5: Debate ✅
 
-- [x] `prompts/jury/debate_template.txt` — agents present arguments in character
-- [x] `workflow/debate.py` — `run_debate()`: Mutated side speaks, then Faithful responds
-- [x] One exchange per run; `debate.max_rounds` in config (for future multi-round)
+- [x] `prompts/jury/debate_template.txt` — agents present arguments, respond to transcript
+- [x] `prompts/jury/debate_status_check.txt` — LLM checks concession / no new arguments
+- [x] `schemas/debate_status.py` — `DebateStatus` (conceded, no_new_arguments)
+- [x] `workflow/debate.py` — `run_debate()`: multi-round Mutated ↔ Faithful; speakers rotate
+- [x] Early termination: max rounds, concession, or no new arguments (LLM checker)
 
 ---
 
@@ -98,3 +100,4 @@ Config: `config.yaml` (data source, pair_ids, agents, rubric, models, interactiv
 |------|--------|
 | — | Initial plan |
 | — | All phases complete; LangGraph pipeline; interactive CLI |
+| — | Debate: multi-round with early stop (max_rounds, concession, no_new_arguments) |

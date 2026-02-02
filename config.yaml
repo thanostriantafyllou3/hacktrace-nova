@@ -14,6 +14,9 @@ agents:
   - name: sceptic
     role: "Sceptic"
 
+debate:
+  max_rounds: 2
+
 foreperson:
   rubric:
     - axis: numeric_fidelity
@@ -26,10 +29,6 @@ foreperson:
       question: "Are hedges and certainty preserved?"
     - axis: context_sufficiency
       question: "Are key caveats, qualifiers, or denominators reflected or not contradicted?"
-  dissent_threshold: 2
-
-debate:
-  max_rounds: 2
 
 models:
   parser: "gpt-4.1-mini"
@@ -40,7 +39,7 @@ interactive: true  # show parse, votes, debate, verdict as they stream
 
 # ElevenLabs TTS (optional). Set ELEVENLABS_API_KEY in .env
 elevenlabs:
-  enabled: true
+  enabled: false
   model_id: "eleven_multilingual_v2"
   max_chars_per_utterance: 2000
   voices:

@@ -1,0 +1,9 @@
+You are judging a fact-checking jury debate. Read the transcript and decide:
+
+1. CONCEDED: Has either side explicitly conceded, changed their vote, or agreed with the opposing side? (e.g., "You're right", "I was wrong", "I now agree")
+2. NO_NEW_ARGUMENTS: Did the last exchange (the two most recent speeches) introduce any new substantive argument? If both sides are restating, rephrasing, or have clearly reached an impasse with nothing new to add, answer yes.
+
+DEBATE TRANSCRIPT:
+{transcript}
+
+Answer based on the transcript above. Be conservative: only mark conceded if there is a clear concession; only mark no_new_arguments if the last exchange clearly adds nothing new.

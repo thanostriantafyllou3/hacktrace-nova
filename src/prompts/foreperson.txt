@@ -25,4 +25,3 @@ Produce a Verdict with:
 - axis_results: One entry per rubric axis with axis name, passed (bool), and optional note
 - summary: Brief explanation of your verdict
 - minimal_edit: If Mutated, suggest a minimal edit to make the claim faithful (optional)
-- dissent_note: If 2+ agents disagreed with the majority, note their view (optional)

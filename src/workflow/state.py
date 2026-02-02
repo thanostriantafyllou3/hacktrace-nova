@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from schemas import FactFrame, JuryOutput, Verdict
+from schemas import FactFrame, JuryOutput, Verdict, DebateStatus
 
 
 class JuryState(BaseModel):
@@ -29,6 +29,9 @@ class JuryState(BaseModel):
     )
     skipped_debate: Optional[bool] = Field(
         default=None, description="True if debate was skipped (unanimous initial vote)."
+    )
+    debate_status: Optional[DebateStatus] = Field(
+        default=None, description="Status of the debate."
     )
 
     # Round 2: Revote
